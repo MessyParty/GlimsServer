@@ -11,6 +11,7 @@ import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Table;
 
+import com.glimps.glimpsserver.common.domain.BaseTimeEntity;
 import com.glimps.glimpsserver.session.dto.SignUpRequest;
 
 import lombok.AccessLevel;
@@ -19,18 +20,19 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+
 @Getter
 @Builder
 @AllArgsConstructor(access = AccessLevel.PROTECTED)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "users")
 @Entity
-public class User {
+public class User extends BaseTimeEntity {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	@Column(name = "nick_name")
+	@Column(name = "nickname")
 	private String nickname;
 
 	@Column(name = "email")
@@ -66,4 +68,18 @@ public class User {
 		this.tokenExpirationTime = refreshTokenExpireTime;
 	}
 
+	public void addReviewCnt() {
+		this.reviewCnt++;
+	}
+
+	public void deleteReviewCnt() {
+		this.reviewCnt--;
+	}
+	public void expireRefreshToken(LocalDateTime now) {
+		this.tokenExpirationTime = now;
+	}
+
+	public void updateNickname(String nickname) {
+		this.nickname = nickname;
+	}
 }

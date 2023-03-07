@@ -8,9 +8,9 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.glimps.glimpsserver.common.error.CustomException;
 import com.glimps.glimpsserver.common.error.EntityNotFoundException;
 import com.glimps.glimpsserver.common.error.ErrorCode;
+import com.glimps.glimpsserver.common.error.InvalidTokenException;
 import com.glimps.glimpsserver.common.error.UserDuplicationException;
 import com.glimps.glimpsserver.common.util.DateTimeUtils;
 import com.glimps.glimpsserver.session.dto.SignUpRequest;
@@ -18,15 +18,22 @@ import com.glimps.glimpsserver.user.domain.RoleType;
 import com.glimps.glimpsserver.user.domain.User;
 import com.glimps.glimpsserver.user.infra.UserRepository;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-@RequiredArgsConstructor
 @Transactional(readOnly = true)
 @Service
 public class UserService {
 	private final UserRepository userRepository;
+
+	public UserService(UserRepository userRepository) {
+		this.userRepository = userRepository;
+	}
+
+	public User getUserByEmail(String email) {
+		return userRepository.findByEmail(email)
+			.orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND, email));
+	}
 
 	public Optional<User> getOptionalUserByEmail(String email) {
 		return userRepository.findByEmail(email);
@@ -56,14 +63,19 @@ public class UserService {
 		return userRepository.findAllByEmail(email);
 	}
 
-	public User findById(Long id) {
+	public User getByEmail(String email) {
+		return userRepository.findByEmail(email)
+			.orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND, null, email));
+	}
+
+	public User getById(Long id) {
 		return userRepository.findById(id)
 			.orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND, id, "UNKNOWN"));
 	}
 
 	@Transactional
 	public Long updateRefreshToken(Long id, String refreshToken, Date refreshTokenExpireTime) {
-		User user = findById(id);
+		User user = getById(id);
 		LocalDateTime convertedExpTime = DateTimeUtils.convertToLocalDateTime(
 			refreshTokenExpireTime);
 
@@ -74,12 +86,20 @@ public class UserService {
 
 	public User getByRefreshToken(String refreshToken) {
 		User user = userRepository.findByRefreshToken(refreshToken)
-			.orElseThrow(() -> new CustomException(ErrorCode.REFRESH_TOKEN_NOT_FOUND));
+			.orElseThrow(() -> new InvalidTokenException(ErrorCode.REFRESH_TOKEN_NOT_FOUND, refreshToken));
 
 		LocalDateTime tokenExpirationTime = user.getTokenExpirationTime();
-		if(tokenExpirationTime.isBefore(LocalDateTime.now())){
-			throw new CustomException(ErrorCode.REFRESH_TOKEN_EXPIRED);
+		if (tokenExpirationTime.isBefore(LocalDateTime.now())) {
+			throw new InvalidTokenException(ErrorCode.REFRESH_TOKEN_EXPIRED, refreshToken);
 		}
 		return user;
 	}
+
+	@Transactional
+	public Long updateUser(String email, String nickname) {
+		User user = getByEmail(email);
+		user.updateNickname(nickname);
+		return user.getId();
+	}
+
 }
